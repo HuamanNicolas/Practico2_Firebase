@@ -8,17 +8,23 @@ class Shopping extends StatelessWidget {
   //productos de ejemplo
   final List<Map<String, dynamic>> products = const [
     {
+      'id': 1,
       'name': 'Producto 1',
+      'description': 'Descripción del Producto 1',
       'price': 10.0,
       'image': 'https://via.placeholder.com/150/FF6B6B/FFFFFF?text=Producto+1'
     },
     {
+      'id': 2,
       'name': 'Producto 2',
+      'description': 'Descripción del Producto 2',
       'price': 20.0,
       'image': 'https://via.placeholder.com/150/4ECDC4/FFFFFF?text=Producto+2'
     },
     {
+      'id': 3,
       'name': 'Producto 3',
+      'description': 'Descripción del Producto 3',
       'price': 30.0,
       'image': 'https://via.placeholder.com/150/45B7D1/FFFFFF?text=Producto+3'
     },
@@ -39,25 +45,25 @@ class Shopping extends StatelessWidget {
               'Bienvenido',
               style: TextStyle(
                 color: Colors.black,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+                fontSize: 16,
+                fontWeight: FontWeight.normal,
               ),
             ),
           ),
-          ...buildProductList(),
+          ...listaProductos(),
           const SizedBox(height: 20),
         ],
       ),
       bottomNavigationBar: BottomAppBar(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
-         
+          
         ),
       ),
     );
   }
 
-  Widget buildItem(String name, double price, String imageUrl) {
+  Widget cardItem(String name, double price, String imageUrl) {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       elevation: 4,
@@ -94,15 +100,15 @@ class Shopping extends StatelessWidget {
                     name,
                     style: const TextStyle(
                       color: Colors.black,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '\$${price.toStringAsFixed(2)}',
                     style: const TextStyle(
-                      color: Colors.green,
+                      color: Color.fromARGB(255, 82, 18, 79),
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -123,9 +129,9 @@ class Shopping extends StatelessWidget {
     );
   }
 
-  List<Widget> buildProductList() {
+  List<Widget> listaProductos() {
     return products
-        .map((product) => buildItem(
+        .map((product) => cardItem(
               product['name'],
               product['price'],
               product['image'],

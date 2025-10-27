@@ -1,9 +1,18 @@
 import 'package:flutter/material.dart';
+import 'producto_page.dart';
+import 'carrito_page.dart'; 
 
-class Shopping extends StatelessWidget {
+class Shopping extends StatefulWidget {
   const Shopping({super.key, required this.title});
 
   final String title;
+
+  @override
+  State<Shopping> createState() => _ShoppingState();
+}
+
+class _ShoppingState extends State<Shopping> {
+  int _selectedIndex = 0;
 
   //productos de ejemplo
   final List<Map<String, dynamic>> products = const [
@@ -30,36 +39,82 @@ class Shopping extends StatelessWidget {
     },
   ];
 
+  // Método getter para obtener las páginas dinámicamente
+  List<Widget> get _pages => [
+    _vistaShopping(),
+    const CarritoPage(),
+    const ProductoPage(),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 86, 9, 105),
-        title: Text(title, style: const TextStyle(color: Colors.white, fontSize: 20)),
-      ),
-      body: ListView(
-        children: [
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Bienvenido',
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 16,
-                fontWeight: FontWeight.normal,
-              ),
-            ),
-          ),
-          ...listaProductos(),
-          const SizedBox(height: 20),
-        ],
-      ),
-      bottomNavigationBar: BottomAppBar(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          
+        title: Text(
+          _getTitle(),
+          style: const TextStyle(color: Colors.white, fontSize: 20),
         ),
       ),
+      body: _pages[_selectedIndex],
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        currentIndex: _selectedIndex,
+        selectedItemColor: const Color.fromARGB(255, 86, 9, 105),
+        unselectedItemColor: Colors.grey,
+        onTap: (index) {
+          setState(() {
+            _selectedIndex = index;
+          });
+        },
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_bag),
+            label: 'Shopping',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_cart),
+            label: 'Carrito',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.list),
+            label: 'Productos',
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _getTitle() {
+    switch (_selectedIndex) {
+      case 0:
+        return 'Shopping';
+      case 1:
+        return 'Carrito de Compras';
+      case 2:
+        return 'Administración de Productos';
+      default:
+        return 'Shopping';
+    }
+  }
+
+  Widget _vistaShopping() {
+    return ListView(
+      children: [
+        const Padding(
+          padding: EdgeInsets.all(16.0),
+          child: Text(
+            'Bienvenido a mi tienda',
+            style: TextStyle(
+              color: Colors.black,
+              fontSize: 17,
+              fontWeight: FontWeight.normal,
+            ),
+          ),
+        ),
+        ...listaProductos(),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
@@ -138,5 +193,4 @@ class Shopping extends StatelessWidget {
             ))
         .toList();
   }
-
 }

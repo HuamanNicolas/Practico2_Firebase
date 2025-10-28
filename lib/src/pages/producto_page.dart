@@ -17,9 +17,11 @@ class _ProductoPageState extends State<ProductoPage> {
   final FirebaseServices _firebaseServices = FirebaseServices.instance;
   File? _image;
 
-  Future<void> _pickImage() async {
+  
+
+  Future<void> _pickImage({required bool fromCamera}) async {
     final imagePicker = ImagePicker();
-    final pickedFile = await imagePicker.pickImage(source: ImageSource.camera, imageQuality: 50, maxWidth: 800);
+    final pickedFile = await imagePicker.pickImage(source: fromCamera ? ImageSource.camera : ImageSource.gallery, imageQuality: 50, maxWidth: 800);
 
     if (pickedFile != null) {
       setState(() {
@@ -190,7 +192,7 @@ class _ProductoPageState extends State<ProductoPage> {
                   onPressed: () => _showEditProductDialog(context, product),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
                   onPressed: () => _confirmDeleteProduct(context, product.id),
                 ),
               ],
@@ -236,22 +238,73 @@ class _ProductoPageState extends State<ProductoPage> {
                     validator: (value) => value!.isEmpty ? 'Ingrese un precio' : null,
                   ),
                   const SizedBox(height: 12),
-                  StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setState) {
-                      return Column(
-                        children: [
-                          if (_image != null) Image.file(_image!, height: 150),
-                          TextButton(
-                            onPressed: () async {
-                              await _pickImage();
-                              setState(() {});
-                            },
-                            child: const Text('Tomar Foto'),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
+                 StatefulBuilder(
+  builder: (BuildContext context, StateSetter setState) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Imagen',
+          style: TextStyle(
+            fontWeight: FontWeight.normal,
+            fontSize: 16,
+            color: Color.fromARGB(255, 38, 37, 37),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              // Área de texto tipo TextField
+              Expanded(
+                child: _image != null
+                    ? Text(
+                        _image!.path.split('/').last, // Nombre de la imagen
+                        style: const TextStyle(fontSize: 16),
+                      )
+                    : const Text(
+                        'Seleccione o tome una foto',
+                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                      ),
+              ),
+              const SizedBox(width: 8),
+              // Botón de cámara
+              IconButton(
+                icon: const Icon(Icons.camera_alt, color: Color.fromARGB(255, 111, 9, 109)),
+                onPressed: () async {
+                  await _pickImage(fromCamera: true);
+                  setState(() {});
+                },
+              ),
+              // Botón de galería
+              IconButton(
+                icon: const Icon(Icons.photo_library, color: Color.fromARGB(255, 111, 9, 109)),
+                onPressed: () async {
+                  await _pickImage(fromCamera: false);
+                  setState(() {});
+                },
+              ),
+            ],
+          ),
+        ),
+        // Vista previa de la imagen
+        if (_image != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8.0),
+            child: Image.file(_image!, height: 150),
+          ),
+      ],
+    );
+  },
+),
+
+
+
                 ],
               ),
             ),
@@ -273,7 +326,7 @@ class _ProductoPageState extends State<ProductoPage> {
                   );
                   
                   await _firebaseServices.insertProductWithImage(newProduct, _image);
-                  
+
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('Producto agregado')),
@@ -340,7 +393,7 @@ class _ProductoPageState extends State<ProductoPage> {
                                   : const Icon(Icons.image_not_supported, size: 100)),
                           TextButton(
                             onPressed: () async {
-                              await _pickImage();
+                              await _pickImage(fromCamera: false);
                               setState(() {});
                             },
                             child: const Text('Cambiar Foto'),

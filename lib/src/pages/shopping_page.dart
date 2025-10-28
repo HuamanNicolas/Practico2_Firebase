@@ -209,7 +209,7 @@ class _ShoppingState extends State<Shopping> {
               ),
             ),
             IconButton(
-              icon: const Icon(Icons.add_shopping_cart, color: Colors.blue),
+              icon: const Icon(Icons.add_shopping_cart, color: Color.fromARGB(255, 113, 11, 117)),
               iconSize: 28,
               onPressed: () {
                 _firebaseServices.addOrIncrementInCarrito(product);

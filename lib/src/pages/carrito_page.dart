@@ -270,8 +270,8 @@ class _CarritoPageState extends State<CarritoPage> {
                               Text(
                                 'Subtotal: \$${subtotal.toStringAsFixed(2)}',
                                 style: const TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.bold,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.normal,
                                   color: Color.fromARGB(255, 96, 9, 104),
                                 ),
                               ),
@@ -292,7 +292,7 @@ class _CarritoPageState extends State<CarritoPage> {
                 border: Border(top: BorderSide(color: Colors.grey.shade300)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black,
                     offset: const Offset(0, -2),
                     blurRadius: 4,
                   ),

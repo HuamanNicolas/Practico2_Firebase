@@ -148,6 +148,22 @@ class FirebaseServices {
         .update(productWithImage.toMap());
   }
 
+  /// Obtener stream de productos en tiempo real
+  Stream<List<Product>> getProductsStream() {
+    return _db.collection(collectionProducts).snapshots().map((snapshot) {
+      return snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Product(
+          id: doc.id,
+          nombre: data['nombre'] ?? '',
+          descripcion: data['descripcion'] ?? '',
+          precio: (data['precio'] ?? 0).toDouble(),
+          imageURL: data['imageURL'] ?? '',
+        );
+      }).toList();
+    });
+  }
+
   /// Eliminar un producto por ID
   Future<void> deleteProduct(String id) async {
     await _db.collection(collectionProducts).doc(id).delete();

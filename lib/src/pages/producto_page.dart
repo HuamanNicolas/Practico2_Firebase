@@ -1,4 +1,10 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:practico2_firebase/src/pages/models/producto.dart';
+import 'package:practico2_firebase/src/services/firebase_service.dart';
 
 class ProductoPage extends StatefulWidget {
   const ProductoPage({super.key});
@@ -8,35 +14,40 @@ class ProductoPage extends StatefulWidget {
 }
 
 class _ProductoPageState extends State<ProductoPage> {
-  // Lista de productos (mutable)
-  List<Map<String, dynamic>> products = [
-    {
-      'id': 1,
-      'nombre': 'Producto 1',
-      'descripcion': 'Descripción del Producto 1',
-      'precio': 10.0,
-      'imagen': 'https://via.placeholder.com/150/FF6B6B/FFFFFF?text=Producto+1'
-    },
-    {
-      'id': 2,
-      'nombre': 'Producto 2',
-      'descripcion': 'Descripción del Producto 2',
-      'precio': 20.0,
-      'imagen': 'https://via.placeholder.com/150/4ECDC4/FFFFFF?text=Producto+2'
-    },
-    {
-      'id': 3,
-      'nombre': 'Producto 3',
-      'descripcion': 'Descripción del Producto 3',
-      'precio': 30.0,
-      'imagen': 'https://via.placeholder.com/150/45B7D1/FFFFFF?text=Producto+3'
-    },
-  ];
+  final FirebaseServices _firebaseServices = FirebaseServices.instance;
+  File? _image;
+
+  Future<void> _pickImage() async {
+    final imagePicker = ImagePicker();
+    final pickedFile = await imagePicker.pickImage(source: ImageSource.camera, imageQuality: 50, maxWidth: 800);
+
+    if (pickedFile != null) {
+      setState(() {
+        _image = File(pickedFile.path);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: _buildProductList(),
+      body: StreamBuilder<List<Product>>(
+        stream: _firebaseServices.getProductsStream(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+          if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return _buildEmptyProductList();
+          }
+
+          final products = snapshot.data!;
+          return _buildProductList(products);
+        },
+      ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color.fromARGB(255, 86, 9, 105),
         onPressed: () => _showAddProductDialog(context),
@@ -45,39 +56,39 @@ class _ProductoPageState extends State<ProductoPage> {
     );
   }
 
-  Widget _buildProductList() {
-    if (products.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.inventory_2_outlined,
-              size: 100,
-              color: Colors.grey[400],
+  Widget _buildEmptyProductList() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 100,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'No hay productos',
+            style: TextStyle(
+              fontSize: 20,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 20),
-            Text(
-              'No hay productos',
-              style: TextStyle(
-                fontSize: 20,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Agrega un producto con el botón +',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[500],
             ),
-            const SizedBox(height: 10),
-            Text(
-              'Agrega un producto con el botón +',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildProductList(List<Product> products) {
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
@@ -95,7 +106,21 @@ class _ProductoPageState extends State<ProductoPage> {
     );
   }
 
-  Widget _buildProductCard(Map<String, dynamic> product) {
+  Widget _buildProductCard(Product product) {
+    ImageProvider imageProvider;
+    final imageUrl = product.imageURL;
+
+    try {
+      if (imageUrl.isNotEmpty) {
+        final imageBytes = base64Decode(imageUrl);
+        imageProvider = MemoryImage(imageBytes);
+      } else {
+        imageProvider = const AssetImage('assets/placeholder.png'); // Fallback image
+      }
+    } catch (e) {
+      imageProvider = const AssetImage('assets/placeholder.png'); // Fallback on any error
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16.0),
       elevation: 4,
@@ -108,8 +133,8 @@ class _ProductoPageState extends State<ProductoPage> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                product['imagen'],
+              child: Image(
+                image: imageProvider,
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
@@ -129,7 +154,7 @@ class _ProductoPageState extends State<ProductoPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    product['nombre'],
+                    product.nombre,
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: 18,
@@ -138,7 +163,7 @@ class _ProductoPageState extends State<ProductoPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    product['descripcion'],
+                    product.descripcion,
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 14,
@@ -148,7 +173,7 @@ class _ProductoPageState extends State<ProductoPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${product['precio'].toStringAsFixed(2)}',
+                    '\$${product.precio.toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: Color.fromARGB(255, 82, 18, 79),
                       fontSize: 16,
@@ -166,7 +191,7 @@ class _ProductoPageState extends State<ProductoPage> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.delete, color: Colors.red),
-                  onPressed: () => _confirmDeleteProduct(context, product),
+                  onPressed: () => _confirmDeleteProduct(context, product.id),
                 ),
               ],
             ),
@@ -181,9 +206,7 @@ class _ProductoPageState extends State<ProductoPage> {
     final nombreController = TextEditingController();
     final descripcionController = TextEditingController();
     final precioController = TextEditingController();
-    final imagenController = TextEditingController(
-      text: 'https://via.placeholder.com/150',
-    );
+    _image = null;
 
     showDialog(
       context: context,
@@ -198,63 +221,35 @@ class _ProductoPageState extends State<ProductoPage> {
                 children: [
                   TextFormField(
                     controller: nombreController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese un nombre';
-                      }
-                      return null;
-                    },
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) => value!.isEmpty ? 'Ingrese un nombre' : null,
                   ),
-                  const SizedBox(height: 12),
                   TextFormField(
                     controller: descripcionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Descripción',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese una descripción';
-                      }
-                      return null;
-                    },
+                    decoration: const InputDecoration(labelText: 'Descripción'),
+                     validator: (value) => value!.isEmpty ? 'Ingrese una descripción' : null,
                   ),
-                  const SizedBox(height: 12),
                   TextFormField(
                     controller: precioController,
-                    decoration: const InputDecoration(
-                      labelText: 'Precio',
-                      border: OutlineInputBorder(),
-                      prefixText: '\$ ',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Precio', prefixText: '\$'),
                     keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese un precio';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Ingrese un número válido';
-                      }
-                      return null;
-                    },
+                    validator: (value) => value!.isEmpty ? 'Ingrese un precio' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: imagenController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de la Imagen',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese una URL de imagen';
-                      }
-                      return null;
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return Column(
+                        children: [
+                          if (_image != null) Image.file(_image!, height: 150),
+                          TextButton(
+                            onPressed: () async {
+                              await _pickImage();
+                              setState(() {});
+                            },
+                            child: const Text('Tomar Foto'),
+                          ),
+                        ],
+                      );
                     },
                   ),
                 ],
@@ -267,31 +262,25 @@ class _ProductoPageState extends State<ProductoPage> {
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 86, 9, 105),
-              ),
-              onPressed: () {
+              onPressed: () async {
                 if (formKey.currentState!.validate()) {
-                  setState(() {
-                    int newId = products.isEmpty
-                        ? 1
-                        : products.map((p) => p['id'] as int).reduce((a, b) => a > b ? a : b) + 1;
-                    
-                    products.add({
-                      'id': newId,
-                      'nombre': nombreController.text,
-                      'descripcion': descripcionController.text,
-                      'precio': double.parse(precioController.text),
-                      'imagen': imagenController.text,
-                    });
-                  });
+                  final newProduct = Product(
+                    id: '', // Firestore will generate the ID
+                    nombre: nombreController.text,
+                    descripcion: descripcionController.text,
+                    precio: double.parse(precioController.text),
+                    imageURL: '', // The service will handle the image
+                  );
+                  
+                  await _firebaseServices.insertProductWithImage(newProduct, _image);
+                  
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Producto agregado exitosamente')),
+                    const SnackBar(content: Text('Producto agregado')),
                   );
                 }
               },
-              child: const Text('Agregar', style: TextStyle(color: Colors.white)),
+              child: const Text('Agregar'),
             ),
           ],
         );
@@ -299,12 +288,12 @@ class _ProductoPageState extends State<ProductoPage> {
     );
   }
 
-  void _showEditProductDialog(BuildContext context, Map<String, dynamic> product) {
+  void _showEditProductDialog(BuildContext context, Product product) {
     final formKey = GlobalKey<FormState>();
-    final nombreController = TextEditingController(text: product['nombre']);
-    final descripcionController = TextEditingController(text: product['descripcion']);
-    final precioController = TextEditingController(text: product['precio'].toString());
-    final imagenController = TextEditingController(text: product['imagen']);
+    final nombreController = TextEditingController(text: product.nombre);
+    final descripcionController = TextEditingController(text: product.descripcion);
+    final precioController = TextEditingController(text: product.precio.toString());
+    _image = null;
 
     showDialog(
       context: context,
@@ -319,63 +308,45 @@ class _ProductoPageState extends State<ProductoPage> {
                 children: [
                   TextFormField(
                     controller: nombreController,
-                    decoration: const InputDecoration(
-                      labelText: 'Nombre',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese un nombre';
-                      }
-                      return null;
-                    },
+                    decoration: const InputDecoration(labelText: 'Nombre'),
+                    validator: (value) => value!.isEmpty ? 'Ingrese un nombre' : null,
                   ),
-                  const SizedBox(height: 12),
                   TextFormField(
                     controller: descripcionController,
-                    decoration: const InputDecoration(
-                      labelText: 'Descripción',
-                      border: OutlineInputBorder(),
-                    ),
-                    maxLines: 3,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese una descripción';
-                      }
-                      return null;
-                    },
+                    decoration: const InputDecoration(labelText: 'Descripción'),
+                    validator: (value) => value!.isEmpty ? 'Ingrese una descripción' : null,
                   ),
-                  const SizedBox(height: 12),
                   TextFormField(
                     controller: precioController,
-                    decoration: const InputDecoration(
-                      labelText: 'Precio',
-                      border: OutlineInputBorder(),
-                      prefixText: '\$ ',
-                    ),
+                    decoration: const InputDecoration(labelText: 'Precio', prefixText: '\$'),
                     keyboardType: TextInputType.number,
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese un precio';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Ingrese un número válido';
-                      }
-                      return null;
-                    },
+                    validator: (value) => value!.isEmpty ? 'Ingrese un precio' : null,
                   ),
                   const SizedBox(height: 12),
-                  TextFormField(
-                    controller: imagenController,
-                    decoration: const InputDecoration(
-                      labelText: 'URL de la Imagen',
-                      border: OutlineInputBorder(),
-                    ),
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Por favor ingrese una URL de imagen';
-                      }
-                      return null;
+                  StatefulBuilder(
+                    builder: (BuildContext context, StateSetter setState) {
+                      return Column(
+                        children: [
+                           _image != null
+                              ? Image.file(_image!, height: 150)
+                              : (product.imageURL.isNotEmpty
+                                  ? Image.memory(
+                                      base64Decode(product.imageURL.split(',').last),
+                                      height: 150,
+                                      errorBuilder: (context, error, stackTrace) {
+                                        return const Icon(Icons.image_not_supported, size: 100);
+                                      },
+                                    )
+                                  : const Icon(Icons.image_not_supported, size: 100)),
+                          TextButton(
+                            onPressed: () async {
+                              await _pickImage();
+                              setState(() {});
+                            },
+                            child: const Text('Cambiar Foto'),
+                          ),
+                        ],
+                      );
                     },
                   ),
                 ],
@@ -388,24 +359,23 @@ class _ProductoPageState extends State<ProductoPage> {
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color.fromARGB(255, 86, 9, 105),
-              ),
-              onPressed: () {
+              onPressed: () async {
                 if (formKey.currentState!.validate()) {
-                  setState(() {
-                    product['nombre'] = nombreController.text;
-                    product['descripcion'] = descripcionController.text;
-                    product['precio'] = double.parse(precioController.text);
-                    product['imagen'] = imagenController.text;
-                  });
+                  final updatedProduct = product.copyWith(
+                    nombre: nombreController.text,
+                    descripcion: descripcionController.text,
+                    precio: double.parse(precioController.text),
+                  );
+
+                  await _firebaseServices.updateProductWithImage(updatedProduct, _image);
+
                   Navigator.of(context).pop();
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Producto actualizado exitosamente')),
+                    const SnackBar(content: Text('Producto actualizado')),
                   );
                 }
               },
-              child: const Text('Guardar', style: TextStyle(color: Colors.white)),
+              child: const Text('Guardar'),
             ),
           ],
         );
@@ -413,29 +383,25 @@ class _ProductoPageState extends State<ProductoPage> {
     );
   }
 
-  void _confirmDeleteProduct(BuildContext context, Map<String, dynamic> product) {
+  void _confirmDeleteProduct(BuildContext context, String productId) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Confirmar Eliminación'),
-          content: Text('¿Estás seguro de que deseas eliminar "${product['nombre']}"?'),
+          content: const Text('¿Estás seguro de que deseas eliminar este producto?'),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
               child: const Text('Cancelar'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
-              ),
-              onPressed: () {
-                setState(() {
-                  products.removeWhere((p) => p['id'] == product['id']);
-                });
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () async {
+                await _firebaseServices.deleteProduct(productId);
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('${product['nombre']} eliminado exitosamente')),
+                  const SnackBar(content: Text('Producto eliminado')),
                 );
               },
               child: const Text('Eliminar', style: TextStyle(color: Colors.white)),

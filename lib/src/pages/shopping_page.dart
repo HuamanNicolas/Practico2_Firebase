@@ -1,6 +1,9 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:practico2_firebase/src/pages/models/producto.dart';
+import 'package:practico2_firebase/src/services/firebase_service.dart';
 import 'producto_page.dart';
-import 'carrito_page.dart'; 
+import 'carrito_page.dart';
 
 class Shopping extends StatefulWidget {
   const Shopping({super.key, required this.title});
@@ -13,41 +16,17 @@ class Shopping extends StatefulWidget {
 
 class _ShoppingState extends State<Shopping> {
   int _selectedIndex = 0;
-
-  //productos de ejemplo
-  final List<Map<String, dynamic>> products = const [
-    {
-      'id': 1,
-      'name': 'Producto 1',
-      'description': 'Descripción del Producto 1',
-      'price': 10.0,
-      'image': 'https://via.placeholder.com/150/FF6B6B/FFFFFF?text=Producto+1'
-    },
-    {
-      'id': 2,
-      'name': 'Producto 2',
-      'description': 'Descripción del Producto 2',
-      'price': 20.0,
-      'image': 'https://via.placeholder.com/150/4ECDC4/FFFFFF?text=Producto+2'
-    },
-    {
-      'id': 3,
-      'name': 'Producto 3',
-      'description': 'Descripción del Producto 3',
-      'price': 30.0,
-      'image': 'https://via.placeholder.com/150/45B7D1/FFFFFF?text=Producto+3'
-    },
-  ];
-
-  // Método getter para obtener las páginas dinámicamente
-  List<Widget> get _pages => [
-    _vistaShopping(),
-    const CarritoPage(),
-    const ProductoPage(),
-  ];
+  final FirebaseServices _firebaseServices = FirebaseServices.instance;
 
   @override
   Widget build(BuildContext context) {
+    // 👇 Las páginas se crean dentro del build (no antes)
+    final pages = [
+      _vistaShopping(),
+      const CarritoPage(),
+      const ProductoPage(),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: const Color.fromARGB(255, 86, 9, 105),
@@ -56,7 +35,7 @@ class _ShoppingState extends State<Shopping> {
           style: const TextStyle(color: Colors.white, fontSize: 20),
         ),
       ),
-      body: _pages[_selectedIndex],
+      body: pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         currentIndex: _selectedIndex,
@@ -98,27 +77,85 @@ class _ShoppingState extends State<Shopping> {
     }
   }
 
+  // 👇 Vista principal con StreamBuilder para productos
   Widget _vistaShopping() {
-    return ListView(
-      children: [
-        const Padding(
-          padding: EdgeInsets.all(16.0),
-          child: Text(
-            'Bienvenido a mi tienda',
+  return StreamBuilder<List<Product>>(
+    stream: _firebaseServices.getProductsStream(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return const Center(child: CircularProgressIndicator());
+      }
+      if (snapshot.hasError) {
+        return Center(child: Text('Error: ${snapshot.error}'));
+      }
+      if (!snapshot.hasData || snapshot.data!.isEmpty) {
+        return _buildEmptyProductList();
+      }
+
+      final products = snapshot.data!;
+      return _buildProductList(products);
+    },
+  );
+}
+
+
+  Widget _buildEmptyProductList() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 100,
+            color: Colors.grey[400],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'No hay productos disponibles',
             style: TextStyle(
-              color: Colors.black,
-              fontSize: 17,
-              fontWeight: FontWeight.normal,
+              fontSize: 20,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.bold,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProductList(List<Product> products) {
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        const Text(
+          'Bienvenido a mi tienda',
+          style: TextStyle(
+            color: Colors.black,
+            fontSize: 17,
+            fontWeight: FontWeight.normal,
+          ),
         ),
-        ...listaProductos(),
-        const SizedBox(height: 20),
+        const SizedBox(height: 16),
+        ...products.map((product) => cardItem(product)),
       ],
     );
   }
 
-  Widget cardItem(String name, double price, String imageUrl) {
+  Widget cardItem(Product product) {
+    ImageProvider imageProvider;
+    final imageUrl = product.imageURL;
+
+    try {
+      if (imageUrl.isNotEmpty) {
+        final imageBytes = base64Decode(imageUrl);
+        imageProvider = MemoryImage(imageBytes);
+      } else {
+        imageProvider = const AssetImage('assets/placeholder.png');
+      }
+    } catch (e) {
+      imageProvider = const AssetImage('assets/placeholder.png');
+    }
+
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       elevation: 4,
@@ -131,8 +168,8 @@ class _ShoppingState extends State<Shopping> {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: Image.network(
-                imageUrl,
+              child: Image(
+                image: imageProvider,
                 width: 80,
                 height: 80,
                 fit: BoxFit.cover,
@@ -152,7 +189,7 @@ class _ShoppingState extends State<Shopping> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    name,
+                    product.nombre,
                     style: const TextStyle(
                       color: Colors.black,
                       fontSize: 14,
@@ -161,7 +198,7 @@ class _ShoppingState extends State<Shopping> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    '\$${price.toStringAsFixed(2)}',
+                    '\$${product.precio.toStringAsFixed(2)}',
                     style: const TextStyle(
                       color: Color.fromARGB(255, 82, 18, 79),
                       fontSize: 16,
@@ -175,22 +212,15 @@ class _ShoppingState extends State<Shopping> {
               icon: const Icon(Icons.add_shopping_cart, color: Colors.blue),
               iconSize: 28,
               onPressed: () {
-                // Lógica para agregar al carrito
+                _firebaseServices.addOrIncrementInCarrito(product);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Producto agregado al carrito')),
+                );
               },
             ),
           ],
         ),
       ),
     );
-  }
-
-  List<Widget> listaProductos() {
-    return products
-        .map((product) => cardItem(
-              product['name'],
-              product['price'],
-              product['image'],
-            ))
-        .toList();
   }
 }

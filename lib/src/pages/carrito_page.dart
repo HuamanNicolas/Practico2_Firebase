@@ -266,13 +266,18 @@ class _CarritoPageState extends State<CarritoPage> {
                                   ),
                                 ],
                               ),
-                              // Subtotal
-                              Text(
-                                'Subtotal: \$${subtotal.toStringAsFixed(2)}',
-                                style: const TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.normal,
-                                  color: Color.fromARGB(255, 96, 9, 104),
+                              const SizedBox(width: 18),                              // Subtotal
+                              Flexible(
+                                child: Text(
+                                  'Subtotal: \$${subtotal.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.normal,
+                                    color: Color.fromARGB(255, 96, 9, 104),
+                                  ),
+                                  overflow: TextOverflow.ellipsis, 
+                                  maxLines: 2,
+                                  textAlign: TextAlign.start,
                                 ),
                               ),
                             ],
